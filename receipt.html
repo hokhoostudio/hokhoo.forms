@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOKHOO STUDIO - ระบบออกใบเสร็จรับเงิน (Bilingual & Payment Flow)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        /* ================= CI Color & Reset ================= */
+        :root {
+            --black: #000000;
+            --dark-gray: #2B2B2B;
+            --gray: #757375;
+            --light-gray: #BDBDBD;
+            --bg-gray: #F5F5F5;
+            --white: #FFFFFF;
+            --radius: 8px;
+        }
+        * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
+        body { margin: 0; background-color: var(--bg-gray); color: var(--black); }
+
+        /* ================= UI Components ================= */
+        .btn {
+            background: var(--black); color: var(--white); border: 1px solid var(--black);
+            padding: 8px 16px; border-radius: var(--radius); cursor: pointer; font-weight: 500;
+            transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.9rem;
+        }
+        .btn:hover { background: var(--dark-gray); }
+        .btn-outline { background: var(--white); color: var(--black); }
+        .btn-outline:hover { background: var(--bg-gray); }
+        .btn-danger { background: #ff4d4f; border-color: #ff4d4f; color: white; }
+        
+        .card { background: var(--white); padding: 20px; border-radius: var(--radius); border: 1px solid var(--light-gray); margin-bottom: 20px; }
+        .card-header { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; border-bottom: 1px solid var(--black); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        input, select, textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--light-gray); border-radius: var(--radius); font-size: 0.9rem; margin-bottom: 10px; outline: none; transition: 0.2s; }
+        input:focus, select:focus, textarea:focus { border-color: var(--black); box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
+        label { font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px; color: var(--dark-gray); }
+        .en-lbl { font-size: 0.75rem; color: var(--gray); font-weight: normal; }
+
+        /* ================= Tabs System ================= */
+        .tabs-container { display: flex; gap: 10px; overflow-x: auto; padding: 15px 20px; background: var(--white); border-bottom: 1px solid var(--light-gray); position: sticky; top: 0; z-index: 100; }
+        .tab { padding: 6px 12px; background: var(--bg-gray); border: 1px solid var(--light-gray); border-radius: var(--radius); cursor: pointer; font-size: 0.9rem; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+        .tab.active { background: var(--black); color: var(--white); border-color: var(--black); }
+        .tab-close { color: var(--gray); font-weight: bold; cursor: pointer; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; }
+        .tab-close:hover { background: #ff4d4f; color: white; }
+        .tab.active .tab-close { color: #ccc; }
+        .tab.active .tab-close:hover { color: white; }
+
+        /* ================= Layout ================= */
+        .app-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+
+        /* ================= Signature Control ================= */
+        .sig-controls { display: flex; gap: 10px; margin-bottom: 10px; font-size: 0.85rem; }
+        .sig-canvas { border: 1px dashed var(--gray); border-radius: var(--radius); width: 100%; height: 120px; cursor: crosshair; background: #fff; touch-action: none; }
+        .sig-panel { background: #fafafa; padding: 10px; border-radius: var(--radius); border: 1px solid var(--light-gray); margin-bottom: 10px; display: none; }
+
+        /* ================= Document Render (A4) ================= */
+        #render-container { display: none; }
+        .bill-render-group { margin-bottom: 40px; }
+        .a4-page {
+            width: 210mm; height: 297mm; max-height: 297mm; overflow: hidden; /* ล็อกความสูงห้ามล้น */
+            background: var(--white); padding: 15mm 20mm;
+            position: relative; box-sizing: border-box; font-size: 12px; line-height: 1.4;
+            color: var(--black); margin: 0 auto 20px auto; border: 1px solid var(--light-gray);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08); page-break-after: always; break-after: page;
+        }
+        .bill-render-group .a4-page:last-child { page-break-after: auto; break-after: auto; }
+        .a4-content { height: 100%; min-height: 0; position: relative; display: flex; flex-direction: column; }
+        .en-text { font-size: 0.75em; color: var(--gray); font-weight: normal; }
+        
+        .page-num { position: absolute; top: 10mm; right: 20mm; font-size: 11px; color: var(--gray); }
+        .doc-header { text-align: right; margin-bottom: 8mm; margin-top: 5mm; }
+        .doc-title { font-size: 24px; font-weight: 600; margin: 0; }
+        .doc-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 8mm; }
+        .party-box { padding: 8px 12px; border: 1px solid var(--black); border-radius: var(--radius); }
+        .party-box h4 { margin: 0 0 5px 0; font-size: 13px; border-bottom: 1px solid var(--light-gray); padding-bottom: 5px; }
+        .party-info { margin: 2px 0; font-size: 11px;}
+
+        /* Table ย่อขนาดให้ดูเป็นมืออาชีพ ประหยัดพื้นที่ */
+        .doc-table { width: 100%; border-collapse: collapse; margin-bottom: 5mm; table-layout: fixed; }
+        .doc-table th, .doc-table td { border: 1px solid var(--black); padding: 5px 8px; font-size: 11px; vertical-align: top; word-break: break-word; }
+        .doc-table th { background: var(--bg-gray); text-align: center; line-height: 1.2; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        /* Bottom Section: Notes, Summary */
+        .bottom-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5mm; gap: 15px; }
+        .doc-note-box { width: 50%; }
+        
+        .doc-summary { width: 45%; border: 1px solid var(--black); border-radius: var(--radius); padding: 8px; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; }
+        .summary-total { font-weight: 600; font-size: 13px; border-top: 1px solid var(--black); padding-top: 4px; margin-top: 4px; }
+
+        /* Signatures (Bottom) */
+        .signatures-area { position: absolute; bottom: 12mm; left: 20mm; right: 20mm; display: flex; justify-content: space-around; }
+        .sig-box { text-align: center; width: 40%; }
+        /* พื้นที่เซ็น 60px พอดีๆ */
+        .sig-line { height: 60px; border-bottom: 1px dashed var(--black); margin-bottom: 5px; background-size: contain; background-repeat: no-repeat; background-position: bottom center; }
+        .last-page-footer { position: absolute; left: 20mm; right: 20mm; bottom: 12mm; }
+        .last-page-footer .bottom-section { margin-bottom: 6mm; }
+        .last-page-footer .signatures-area { position: static; left: auto; right: auto; bottom: auto; display: flex; justify-content: space-around; }
+        .terms-box { margin-top: 4mm; font-size: 11px; }
+        .bill-type-back { margin-right: 4px; }
+        body.pdf-exporting { background: white; }
+        body.pdf-exporting .bill-render-group { margin-bottom: 0; }
+        body.pdf-exporting .a4-page { border: none; box-shadow: none; margin: 0; }
+
+        /* Preview Grid (Scale CSS แทน iframe เพื่อความเสถียร) */
+        .bill-preview-section { background: var(--white); padding: 20px; border-radius: var(--radius); margin-bottom: 30px; border: 1px solid var(--light-gray); }
+        .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-top: 15px; }
+        .preview-thumbnail { width: 100%; aspect-ratio: 1 / 1.414; background: #fff; border: 1px solid var(--black); border-radius: var(--radius); cursor: zoom-in; position: relative; overflow: hidden; transition: transform 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .preview-thumbnail:hover { transform: translateY(-5px); border-color: var(--gray); }
+        .thumb-label { position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.8); color: white; text-align: center; padding: 4px; font-size: 11px; z-index: 10; }
+
+        /* Modal (Fixed Scroll Issue) */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; z-index: 1000; overflow-y: auto; padding: 40px 0; }
+        .modal-content { margin: 0 auto; width: 210mm; position: relative; }
+        .close-modal { position: fixed; top: 20px; right: 30px; font-size: 40px; color: white; cursor: pointer; z-index: 1001; transition: 0.2s; background: rgba(0,0,0,0.5); width: 50px; height: 50px; text-align: center; line-height: 45px; border-radius: 50%; }
+        .close-modal:hover { color: #ff4d4f; background: white; }
+
+        @page { size: A4 portrait; margin: 0; }
+        @media print {
+            body { background: white; }
+            .no-print { display: none !important; }
+            #render-container { display: block !important; }
+            .bill-render-group { margin-bottom: 0; }
+            .a4-page { border: none; box-shadow: none; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="tabs-container no-print" id="tabs-container"></div>
+
+<div class="app-container no-print">
+
+    <div id="view-form" class="view-section active">
+        
+        <div class="card" style="background: #f9f9f9;">
+            <div class="card-header">
+                <span>🏢 ข้อมูลผู้ออกเอกสาร <span class="en-lbl">/ Issuer Info</span></span>
+                <span style="font-size: 0.8rem; color: #52c41a; font-weight: normal;">✅ บันทึกอัตโนมัติ / Auto-Saved</span>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <label>อัปโหลดโลโก้บริษัท <span class="en-lbl">/ Upload Logo</span></label>
+                    <input type="file" id="i_logo" accept="image/*" onchange="handleImageUpload(event, 'issuer_logo')">
+                    <img id="preview_i_logo" style="max-height: 50px; display: none; margin-bottom: 10px;">
+                </div>
+                <div></div>
+                <div>
+                    <label>ชื่อกิจการ <span class="en-lbl">/ Company Name</span></label>
+                    <input type="text" id="i_name" placeholder="ชื่อกิจการ / Company Name" oninput="autoSaveIssuer()">
+                </div>
+                <div>
+                    <label>เลขประจำตัวผู้เสียภาษี <span class="en-lbl">/ Tax ID</span></label>
+                    <input type="text" id="i_tax" placeholder="เลขผู้เสียภาษี / Tax ID" oninput="autoSaveIssuer()">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label>ที่อยู่ <span class="en-lbl">/ Address</span></label>
+                    <textarea id="i_addr" placeholder="ที่อยู่ / Address" rows="2" oninput="autoSaveIssuer()"></textarea>
+                </div>
+                <div>
+                    <label>เบอร์โทร <span class="en-lbl">/ Tel</span></label>
+                    <input type="text" id="i_tel" placeholder="เบอร์โทร / Tel" oninput="autoSaveIssuer()">
+                </div>
+                <div>
+                    <label>อีเมล <span class="en-lbl">/ Email</span></label>
+                    <input type="text" id="i_email" placeholder="อีเมล / Email" oninput="autoSaveIssuer()">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label>เว็บไซต์ <span class="en-lbl">/ Website</span></label>
+                    <input type="text" id="i_web" placeholder="เว็บไซต์ / Website" oninput="autoSaveIssuer()">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">👤 ข้อมูลลูกค้า <span class="en-lbl">/ Customer Info</span></div>
+                <label>ชื่อลูกค้า <span class="en-lbl">/ Customer Name</span></label>
+                <input type="text" id="c_name" placeholder="ระบุชื่อลูกค้า / Enter Customer Name" oninput="updateBillData()">
+                <label>ชื่อบริษัท <span class="en-lbl">/ Company (Optional)</span></label>
+                <input type="text" id="c_comp" placeholder="ระบุบริษัท / Enter Company" oninput="updateBillData()">
+                <label>เลขผู้เสียภาษี <span class="en-lbl">/ Tax ID</span></label>
+                <input type="text" id="c_tax" placeholder="ระบุเลขผู้เสียภาษี / Enter Tax ID" oninput="updateBillData()">
+                <label>ที่อยู่ลูกค้า <span class="en-lbl">/ Address</span></label>
+                <textarea id="c_addr" placeholder="ระบุที่อยู่ลูกค้า / Enter Address" rows="2" oninput="updateBillData()"></textarea>
+                <div class="grid-2">
+                    <div><label>เบอร์โทร <span class="en-lbl">/ Tel</span></label><input type="text" id="c_tel" placeholder="เบอร์โทร / Tel" oninput="updateBillData()"></div>
+                    <div><label>อีเมล <span class="en-lbl">/ Email</span></label><input type="text" id="c_email" placeholder="อีเมล / Email" oninput="updateBillData()"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">📄 รายละเอียดเอกสาร <span class="en-lbl">/ Document Details</span></div>
+                <div class="grid-2">
+                    <div><label>เลขที่ใบเสร็จ <span class="en-lbl">/ Doc No.</span></label><input type="text" id="doc_no" placeholder="เช่น REC-001" oninput="updateBillData()"></div>
+                    <div><label>วันที่ออกเอกสาร <span class="en-lbl">/ Date</span></label><input type="date" id="doc_date" oninput="updateBillData()"></div>
+                    <div><label>สกุลเงิน <span class="en-lbl">/ Currency</span></label>
+                        <select id="doc_curr" onchange="updateBillData()">
+                            <option value="THB">THB (฿)</option><option value="USD">USD ($)</option>
+                        </select>
+                    </div>
+                    <div><label>คำนวณภาษี <span class="en-lbl">/ VAT</span></label>
+                        <select id="doc_vat" onchange="updateBillData()">
+                            <option value="0">ไม่มี VAT / No VAT</option><option value="7">VAT 7%</option>
+                        </select>
+                    </div>
+                    <div style="grid-column: span 2;">
+                        <label>ส่วนลดรวมท้ายบิล <span class="en-lbl">/ Total Discount</span></label>
+                        <input type="number" id="doc_discount" placeholder="ยอดเงินส่วนลด (ลดเป็นจำนวนเงิน)" value="0" oninput="updateBillData()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span>🛒 รายการสินค้า <span class="en-lbl">/ Items</span></span>
+                <button class="btn btn-outline" style="padding: 4px 10px;" onclick="addItem()">+ เพิ่มรายการ / Add Item</button>
+            </div>
+            <div id="items-container"></div>
+        </div>
+
+        <div class="card" style="border: 2px solid var(--black);">
+            <div class="card-header">
+                <span>💳 ข้อมูลการชำระเงิน <span class="en-lbl">/ Payment Information</span></span>
+            </div>
+            <p style="font-size: 0.75rem; color: #ff4d4f; margin-top: -10px;">* ทางระบบจะไม่เก็บข้อมูลการชำระเงินใดใด หลังจบการใช้บริการฟรีทั้งหมด / The system will not store any payment data.</p>
+            
+            <div class="grid-2">
+                <div>
+                    <label>เลือกวิธีการชำระเงิน <span class="en-lbl">/ Select Payment Method</span></label>
+                    <select id="pay_method" onchange="togglePaymentUI()">
+                        <option value="">-- ไม่ระบุวิธีชำระ / Do not specify --</option>
+                        <option value="cash">เงินสด / Cash</option>
+                        <option value="bank">โอนเงินผ่านธนาคาร / Bank Transfer</option>
+                        <option value="promptpay">พร้อมเพย์ / PromptPay</option>
+                        <option value="qrcode">สแกน QR Code / Scan QR Code</option>
+                        <option value="credit">บัตรเครดิต / Credit Card</option>
+                        <option value="debit">บัตรเดบิต / Debit Card</option>
+                        <option value="check">เช็ค / Cheque</option>
+                        <option value="ewallet">อีวอลเล็ต / E-Wallet</option>
+                        <option value="other">อื่นๆ / Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="pay_base_fields" style="display:none; margin-top: 10px;">
+                <div class="grid-2">
+                    <div><label>วันที่ชำระเงิน <span class="en-lbl">/ Payment Date</span></label><input type="date" id="pay_date" oninput="updatePaymentData()"></div>
+                    <div><label>เวลา <span class="en-lbl">/ Time</span></label><input type="time" id="pay_time" oninput="updatePaymentData()"></div>
+                    <div><label>จำนวนเงิน <span class="en-lbl">/ Amount Paid</span></label><input type="number" id="pay_amount" placeholder="ระบุจำนวนเงินที่ชำระ" oninput="updatePaymentData(); calcChange();"></div>
+                    <div><label>เลขอ้างอิง <span class="en-lbl">/ Ref No.</span></label><input type="text" id="pay_refNo" placeholder="เลขสลิปโอนเงิน ฯลฯ" oninput="updatePaymentData()"></div>
+                </div>
+                
+                <div id="pay_dynamic_area" style="background: var(--bg-gray); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                    <div id="div_pay_cash" class="grid-2" style="display:none;">
+                        <div><label>รับเงินมา <span class="en-lbl">/ Received Amount</span></label><input type="number" id="pay_cashRecv" placeholder="ยอดเงินที่ลูกค้ายื่นให้" oninput="updatePaymentData(); calcChange();"></div>
+                        <div><label>เงินทอน <span class="en-lbl">/ Change (Auto)</span></label><input type="number" id="pay_cashChange" placeholder="0.00" readonly style="background:#e9ecef; cursor:not-allowed;"></div>
+                    </div>
+                    <div id="div_pay_bank" class="grid-2" style="display:none;">
+                        <div><label>โอนเข้าธนาคาร <span class="en-lbl">/ Bank</span></label><input type="text" id="pay_bank" placeholder="ชื่อธนาคาร" oninput="updatePaymentData()"></div>
+                        <div><label>ชื่อบัญชีปลายทาง <span class="en-lbl">/ Account Name</span></label><input type="text" id="pay_accName" placeholder="ชื่อบัญชีรับเงิน" oninput="updatePaymentData()"></div>
+                        <div style="grid-column: span 2;"><label>เลขบัญชีปลายทาง <span class="en-lbl">/ Account No.</span></label><input type="text" id="pay_accNo" placeholder="เลขบัญชีรับเงิน" oninput="updatePaymentData()"></div>
+                    </div>
+                    <div id="div_pay_promptpay" class="grid-2" style="display:none;">
+                        <div><label>ชื่อบัญชี <span class="en-lbl">/ Account Name</span></label><input type="text" id="pay_ppAccName" placeholder="ชื่อบัญชีรับเงิน" oninput="updatePaymentData()"></div>
+                        <div><label>เบอร์/หมายเลขพร้อมเพย์ <span class="en-lbl">/ PromptPay No.</span></label><input type="text" id="pay_ppNo" placeholder="เบอร์โทรหรือบัตรปชช." oninput="updatePaymentData()"></div>
+                    </div>
+                    <div id="div_pay_qrcode" class="grid-2" style="display:none;">
+                        <div><label>สแกนเข้าบัญชี/แอป <span class="en-lbl">/ Bank or App</span></label><input type="text" id="pay_qrBank" placeholder="เช่น กสิกร, ทรูมันนี่" oninput="updatePaymentData()"></div>
+                        <div><label>ชื่อบัญชีปลายทาง <span class="en-lbl">/ Account Name</span></label><input type="text" id="pay_qrAccName" placeholder="ชื่อบัญชีรับเงิน" oninput="updatePaymentData()"></div>
+                    </div>
+                    <div id="div_pay_credit" class="grid-2" style="display:none;">
+                        <div><label>ประเภทบัตร <span class="en-lbl">/ Card Type</span></label><input type="text" id="pay_cardType" placeholder="เช่น Visa, Mastercard" oninput="updatePaymentData()"></div>
+                        <div><label>ธนาคารผู้ออกบัตร <span class="en-lbl">/ Issuing Bank</span></label><input type="text" id="pay_cardBank" placeholder="ธนาคาร" oninput="updatePaymentData()"></div>
+                        <div style="grid-column: span 2;"><label>เลขท้ายบัตร 4 หลัก <span class="en-lbl">/ Last 4 Digits</span></label><input type="text" id="pay_cardLast4" placeholder="****" maxlength="4" oninput="updatePaymentData()"></div>
+                    </div>
+                    <div id="div_pay_debit" class="grid-2" style="display:none;">
+                        <div><label>ธนาคารผู้ออกบัตร <span class="en-lbl">/ Issuing Bank</span></label><input type="text" id="pay_debitBank" placeholder="ธนาคาร" oninput="updatePaymentData()"></div>
+                        <div><label>เลขท้ายบัตร 4 หลัก <span class="en-lbl">/ Last 4 Digits</span></label><input type="text" id="pay_debitLast4" placeholder="****" maxlength="4" oninput="updatePaymentData()"></div>
+                    </div>
+                    <div id="div_pay_check" class="grid-2" style="display:none;">
+                        <div><label>ธนาคาร <span class="en-lbl">/ Bank</span></label><input type="text" id="pay_checkBank" placeholder="ธนาคาร" oninput="updatePaymentData()"></div>
+                        <div><label>เลขที่เช็ค <span class="en-lbl">/ Cheque No.</span></label><input type="text" id="pay_checkNo" placeholder="เลขที่เช็ค" oninput="updatePaymentData()"></div>
+                        <div><label>วันที่ในเช็ค <span class="en-lbl">/ Cheque Date</span></label><input type="date" id="pay_checkDate" oninput="updatePaymentData()"></div>
+                        <div><label>วันที่ครบกำหนด <span class="en-lbl">/ Due Date</span></label><input type="date" id="pay_checkDue" oninput="updatePaymentData()"></div>
+                        <div style="grid-column: span 2;"><label>ชื่อผู้สั่งจ่าย <span class="en-lbl">/ Drawer Name</span></label><input type="text" id="pay_checkDrawer" placeholder="ระบุชื่อผู้สั่งจ่าย" oninput="updatePaymentData()"></div>
+                    </div>
+                    <div id="div_pay_ewallet" class="grid-2" style="display:none;">
+                        <div style="grid-column: span 2;"><label>ผู้ให้บริการ <span class="en-lbl">/ Provider</span></label><input type="text" id="pay_ewalletProvider" placeholder="เช่น TrueMoney, ShopeePay" oninput="updatePaymentData()"></div>
+                    </div>
+                    <div id="div_pay_other" class="grid-2" style="display:none;">
+                        <div><label>ระบุวิธีการ <span class="en-lbl">/ Specify Method</span></label><input type="text" id="pay_otherMethod" placeholder="ระบุวิธีชำระ" oninput="updatePaymentData()"></div>
+                        <div><label>รายละเอียด <span class="en-lbl">/ Details</span></label><input type="text" id="pay_otherDetail" placeholder="รายละเอียดเพิ่มเติม" oninput="updatePaymentData()"></div>
+                    </div>
+                </div>
+
+                <div><label>หมายเหตุเพิ่มเติม (โชว์ในหมวดชำระเงิน) <span class="en-lbl">/ Payment Note</span></label><textarea id="pay_note" rows="2" placeholder="ใส่หมายเหตุการชำระเงิน..." oninput="updatePaymentData()"></textarea></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">✍️ ข้อมูลท้ายบิล <span class="en-lbl">/ Footer Info</span></div>
+            <div class="grid-2">
+                <div>
+                    <label>หมายเหตุท้ายเอกสาร <span class="en-lbl">/ Document Remark</span></label>
+                    <textarea id="doc_note" rows="4" placeholder="เช่น ขอบคุณที่ใช้บริการ / Thank you for your business." oninput="updateBillData()"></textarea>
+                    <label>เงื่อนไข <span class="en-lbl">/ Terms & Conditions</span></label>
+                    <textarea id="doc_terms" rows="3" placeholder="เช่น ชำระเงินแล้วไม่สามารถคืนเงินได้ / Terms and conditions." oninput="updateBillData()"></textarea>
+                </div>
+                <div>
+                    <label style="font-weight: 600; border-bottom: 1px solid var(--light-gray); padding-bottom: 4px;">ลายเซ็นผู้รับเงิน <span class="en-lbl">/ Received By</span></label>
+                    <div class="sig-controls">
+                        <label><input type="radio" name="sigRecv" value="blank" onchange="toggleSigUI('recv')" checked> เว้นว่างไว้เซ็นปากกา <span class="en-lbl">/ Blank</span></label>
+                        <label><input type="radio" name="sigRecv" value="draw" onchange="toggleSigUI('recv')"> เซ็นสด <span class="en-lbl">/ Draw</span></label>
+                        <label><input type="radio" name="sigRecv" value="upload" onchange="toggleSigUI('recv')"> อัปโหลด <span class="en-lbl">/ Upload</span></label>
+                    </div>
+                    <div id="panel_recv_draw" class="sig-panel">
+                        <canvas id="canvas_recv" class="sig-canvas"></canvas>
+                        <button class="btn btn-outline" style="padding:2px 8px; font-size:0.8rem; margin-top:5px;" onclick="clearCanvas('recv')">ล้างลายเซ็น / Clear</button>
+                    </div>
+                    <div id="panel_recv_upload" class="sig-panel">
+                        <input type="file" accept="image/*" onchange="handleImageUpload(event, 'sig_recv')">
+                        <img id="preview_sig_recv" style="max-height: 40px; display: none; margin-top:5px;">
+                    </div>
+
+                    <label style="font-weight: 600; border-bottom: 1px solid var(--light-gray); padding-bottom: 4px; margin-top: 15px;">ลายเซ็นผู้อนุมัติ <span class="en-lbl">/ Authorized By</span></label>
+                    <div class="sig-controls">
+                        <label><input type="radio" name="sigAuth" value="blank" onchange="toggleSigUI('auth')" checked> เว้นว่างไว้เซ็นปากกา <span class="en-lbl">/ Blank</span></label>
+                        <label><input type="radio" name="sigAuth" value="draw" onchange="toggleSigUI('auth')"> เซ็นสด <span class="en-lbl">/ Draw</span></label>
+                        <label><input type="radio" name="sigAuth" value="upload" onchange="toggleSigUI('auth')"> อัปโหลด <span class="en-lbl">/ Upload</span></label>
+                    </div>
+                    <div id="panel_auth_draw" class="sig-panel">
+                        <canvas id="canvas_auth" class="sig-canvas"></canvas>
+                        <button class="btn btn-outline" style="padding:2px 8px; font-size:0.8rem; margin-top:5px;" onclick="clearCanvas('auth')">ล้างลายเซ็น / Clear</button>
+                    </div>
+                    <div id="panel_auth_upload" class="sig-panel">
+                        <input type="file" accept="image/*" onchange="handleImageUpload(event, 'sig_auth')">
+                        <img id="preview_sig_auth" style="max-height: 40px; display: none; margin-top:5px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: right; margin-bottom: 50px;">
+            <button class="btn" style="font-size: 1.1rem; padding: 15px 30px;" onclick="generatePreview()">👁️ สรุปบิลทั้งหมดและดูพรีวิว <span class="en-lbl" style="color:white;">/ Preview All</span></button>
+        </div>
+    </div>
+
+    <div id="view-preview" class="view-section">
+        <div class="flex-between">
+            <div>
+                <h2 style="margin:0;">📄 พรีวิว & ดาวน์โหลด <span class="en-lbl">/ Preview & Export</span></h2>
+                <p style="margin:5px 0 0 0; color:var(--gray);">คลิกที่รูปภาพหน้ากระดาษเพื่อซูมดูรายละเอียด (ภาพเหมือนจริง) / Click image to zoom</p>
+            </div>
+            <button class="btn btn-outline" onclick="switchView('view-form')">◀ กลับไปแก้ไขข้อมูล <span class="en-lbl">/ Edit Data</span></button>
+        </div>
+        
+        <div id="preview-bills-container">
+            </div>
+    </div>
+
+</div>
+
+<div id="detail-modal" class="modal-overlay" onclick="closeModalForce(event)">
+    <span class="close-modal" onclick="closeModalForce(event)">&times; <div style="font-size:12px; line-height:1;">ปิด / Close หรือกด ESC</div></span>
+    <div class="modal-content" id="modal-content" onclick="event.stopPropagation()">
+        <div id="modal-doc-render" style="box-shadow: 0 0 20px rgba(0,0,0,0.5);"></div>
+    </div>
+</div>
+
+<div id="render-container"></div>
+
+<script>
+    // ================= STATE MANAGEMENT =================
+    // ล็อกความจุรายการต่อหน้า ให้พอดี A4 แน่นอน
+    const ITEMS_PER_PAGE_FIRST = 15; 
+    const ITEMS_PER_PAGE_MIDDLE = 25;
+    const ITEMS_PER_PAGE_LAST = 10; 
+
+    let issuerData = { name: '', tax: '', addr: '', tel: '', email: '', web: '', logo: '' };
+    
+    const createNewBill = (id, docNo) => ({
+        id: id,
+        customer: { name: '', comp: '', tax: '', addr: '', tel: '', email: '' },
+        doc: { no: docNo, date: new Date().toISOString().split('T')[0], curr: 'THB', vat: '0', note: '', terms: '', discount: 0 },
+        payment: {
+            method: '', date: new Date().toISOString().split('T')[0], time: '', amount: '', refNo: '', note: '',
+            cashRecv: '', cashChange: '', bank: '', accName: '', accNo: '', ppAccName: '', ppNo: '', cardType: '',
+            cardBank: '', cardLast4: '', debitBank: '', debitLast4: '', checkBank: '', checkNo: '', checkDate: '',
+            checkDue: '', checkDrawer: '', ewalletProvider: '', otherMethod: '', otherDetail: '', qrBank: '', qrAccName: ''
+        },
+        sigRecv: { mode: 'blank', data: '' },
+        sigAuth: { mode: 'blank', data: '' },
+        items: [{ name: '', desc: '', qty: 1, price: 0 }]
+    });
+
+    let bills = [createNewBill(1, 'REC-0001')];
+    let activeBillId = 1;
+    let generatedHTMLByBill = {}; 
+    let canvasData = { recv: null, auth: null };
+
+    // ================= INITIALIZE =================
+    window.onload = () => {
+        // Auto Load Issuer Data
+        ['name', 'tax', 'addr', 'tel', 'email', 'web', 'logo'].forEach(key => {
+            issuerData[key] = localStorage.getItem(`i_${key}`) || '';
+            let el = document.getElementById(`i_${key}`);
+            if(el) el.value = issuerData[key];
+        });
+        if(issuerData.logo) {
+            document.getElementById('preview_i_logo').src = issuerData.logo;
+            document.getElementById('preview_i_logo').style.display = 'block';
+        }
+        
+        renderTabs();
+        loadBillToForm(activeBillId);
+
+        // Sortable Items
+        new Sortable(document.getElementById('items-container'), {
+            animation: 150, handle: '.drag-handle',
+            onEnd: (evt) => {
+                let bill = bills.find(b => b.id === activeBillId);
+                const moved = bill.items.splice(evt.oldIndex, 1)[0];
+                bill.items.splice(evt.newIndex, 0, moved);
+                renderItemForm();
+            }
+        });
+
+        initCanvas('recv');
+        initCanvas('auth');
+    };
+
+    // ================= AUTO SAVE ISSUER =================
+    function autoSaveIssuer() {
+        ['name', 'tax', 'addr', 'tel', 'email', 'web'].forEach(key => {
+            issuerData[key] = document.getElementById(`i_${key}`).value;
+            localStorage.setItem(`i_${key}`, issuerData[key]);
+        });
+        localStorage.setItem('i_logo', issuerData.logo);
+    }
+
+    // ================= TABS & BILL MANAGEMENT =================
+    function goToBillTypeSelection() {
+        const params = new URLSearchParams(window.location.search);
+        const target = params.get('typeSelector') || params.get('return') || 'index.html';
+        window.location.href = target;
+    }
+
+    function renderTabs() {
+        const container = document.getElementById('tabs-container');
+        container.innerHTML = '';
+        const backBtn = document.createElement('div');
+        backBtn.className = 'tab bill-type-back';
+        backBtn.innerHTML = '◀ กลับสู่หน้าเลือกประเภทบิล <span class="en-lbl">/ Bill Type</span>';
+        backBtn.onclick = goToBillTypeSelection;
+        container.appendChild(backBtn);
+        bills.forEach((bill, index) => {
+            const btn = document.createElement('div');
+            btn.className = `tab ${bill.id === activeBillId ? 'active' : ''}`;
+            const cName = bill.customer.name || `ลูกค้าคนที่ ${index + 1}`;
+            
+            let html = `<span onclick="selectBill(${bill.id})" style="flex-grow:1;">📄 ${bill.doc.no} (${cName})</span>`;
+            if(bills.length > 1) {
+                html += `<span class="tab-close" onclick="deleteBill(${bill.id}, event)">&times;</span>`;
+            }
+            btn.innerHTML = html;
+            container.appendChild(btn);
+        });
+
+        const addBtn = document.createElement('div');
+        addBtn.className = 'tab';
+        addBtn.style.background = 'var(--black)'; addBtn.style.color = 'white';
+        addBtn.innerHTML = '+ สร้างบิลใหม่ / New Bill';
+        addBtn.onclick = () => {
+            const newId = Date.now();
+            let lastNo = bills[bills.length - 1].doc.no;
+            let match = lastNo.match(/(\D+)(\d+)/);
+            let nextNo = match ? match[1] + (parseInt(match[2]) + 1).toString().padStart(match[2].length, '0') : `REC-${bills.length + 1}`;
+            
+            bills.push(createNewBill(newId, nextNo));
+            selectBill(newId);
+        };
+        container.appendChild(addBtn);
+    }
+
+    function selectBill(id) {
+        saveCanvasToBill();
+        activeBillId = id;
+        loadBillToForm(id);
+        renderTabs();
+    }
+
+    function deleteBill(id, event) {
+        event.stopPropagation();
+        if(confirm('ต้องการลบบิลนี้ใช่หรือไม่? / Delete this bill?')) {
+            bills = bills.filter(b => b.id !== id);
+            if(bills.length === 0) bills.push(createNewBill(Date.now(), 'REC-0001'));
+            activeBillId = bills[0].id;
+            loadBillToForm(activeBillId);
+            renderTabs();
+        }
+    }
+
+    // ================= FORM DATA BINDING =================
+    function loadBillToForm(id) {
+        let bill = bills.find(b => b.id === id);
+        ['name', 'comp', 'tax', 'addr', 'tel', 'email'].forEach(key => { document.getElementById(`c_${key}`).value = bill.customer[key]; });
+        ['no', 'date', 'curr', 'vat', 'note', 'terms', 'discount'].forEach(key => { let el = document.getElementById(`doc_${key}`); if(el) el.value = bill.doc[key] || ''; });
+        
+        // Payment Load
+        document.getElementById('pay_method').value = bill.payment.method || '';
+        togglePaymentUI(false); 
+        const payFields = ['date','time','amount','refNo','note','cashRecv','cashChange','bank','accName','accNo','ppAccName','ppNo','cardType','cardBank','cardLast4','debitBank','debitLast4','checkBank','checkNo','checkDate','checkDue','checkDrawer','ewalletProvider','otherMethod','otherDetail', 'qrBank', 'qrAccName'];
+        payFields.forEach(k => {
+            let el = document.getElementById('pay_' + k);
+            if(el) el.value = bill.payment[k] || '';
+        });
+
+        document.querySelector(`input[name="sigRecv"][value="${bill.sigRecv.mode}"]`).checked = true;
+        document.querySelector(`input[name="sigAuth"][value="${bill.sigAuth.mode}"]`).checked = true;
+        toggleSigUI('recv', false); toggleSigUI('auth', false);
+
+        ['recv', 'auth'].forEach(type => {
+            let bData = type === 'recv' ? bill.sigRecv : bill.sigAuth;
+            let imgPreview = document.getElementById(`preview_sig_${type}`);
+            if(bData.mode === 'upload' && bData.data) {
+                imgPreview.src = bData.data; imgPreview.style.display = 'block';
+            } else {
+                imgPreview.style.display = 'none';
+            }
+            if(canvasData[type]) {
+                const ctx = canvasData[type].ctx; const cvs = canvasData[type].canvas;
+                ctx.clearRect(0,0, cvs.width, cvs.height);
+                if(bData.mode === 'draw' && bData.data) {
+                    let img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = bData.data;
+                }
+            }
+        });
+        renderItemForm();
+    }
+
+    function updateBillData() {
+        let bill = bills.find(b => b.id === activeBillId);
+        ['name', 'comp', 'tax', 'addr', 'tel', 'email'].forEach(key => { bill.customer[key] = document.getElementById(`c_${key}`).value; });
+        ['no', 'date', 'curr', 'vat', 'note', 'terms', 'discount'].forEach(key => { let el = document.getElementById(`doc_${key}`); if(el) bill.doc[key] = el.value; });
+        renderTabs();
+    }
+
+    // ================= PAYMENT LOGIC =================
+    function togglePaymentUI(isUserAction = true) {
+        let method = document.getElementById('pay_method').value;
+        let baseFields = document.getElementById('pay_base_fields');
+        let dynArea = document.getElementById('pay_dynamic_area');
+        
+        if (method) {
+            baseFields.style.display = 'block'; dynArea.style.display = 'block';
+        } else {
+            baseFields.style.display = 'none'; dynArea.style.display = 'none';
+        }
+
+        const divs = ['cash','bank','promptpay','qrcode','credit','debit','check','ewallet','other'];
+        divs.forEach(d => {
+            let el = document.getElementById('div_pay_' + d);
+            if(el) el.style.display = 'none';
+        });
+
+        if (method && document.getElementById('div_pay_' + method)) {
+            document.getElementById('div_pay_' + method).style.display = 'grid';
+        }
+
+        if (isUserAction) {
+            let amtEl = document.getElementById('pay_amount');
+            if(!amtEl.value) {
+                let bill = bills.find(b => b.id === activeBillId);
+                let sumTotal = 0; bill.items.forEach(item => { sumTotal += (item.qty * item.price); });
+                let discount = Number(document.getElementById('doc_discount').value) || 0;
+                let preVat = sumTotal - discount;
+                let vatRate = document.getElementById('doc_vat').value === '7' ? 0.07 : 0;
+                amtEl.value = (preVat + (preVat * vatRate)).toFixed(2);
+            }
+            updatePaymentData();
+        }
+    }
+
+    function updatePaymentData() {
+        let bill = bills.find(b => b.id === activeBillId);
+        bill.payment.method = document.getElementById('pay_method').value;
+        const payFields = ['date','time','amount','refNo','note','cashRecv','cashChange','bank','accName','accNo','ppAccName','ppNo','cardType','cardBank','cardLast4','debitBank','debitLast4','checkBank','checkNo','checkDate','checkDue','checkDrawer','ewalletProvider','otherMethod','otherDetail', 'qrBank', 'qrAccName'];
+        payFields.forEach(k => {
+            let el = document.getElementById('pay_' + k);
+            if(el) bill.payment[k] = el.value;
+        });
+    }
+
+    function calcChange() {
+        let bill = bills.find(b => b.id === activeBillId);
+        let recv = parseFloat(bill.payment.cashRecv) || 0;
+        let paid = parseFloat(bill.payment.amount) || 0;
+        let change = recv - paid;
+        bill.payment.cashChange = change > 0 ? change.toFixed(2) : '0.00';
+        document.getElementById('pay_cashChange').value = bill.payment.cashChange;
+    }
+
+    // ================= IMAGE UPLOAD =================
+    function handleImageUpload(e, targetField) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                let base64 = evt.target.result;
+                if(targetField === 'issuer_logo') {
+                    issuerData.logo = base64; document.getElementById('preview_i_logo').src = base64; document.getElementById('preview_i_logo').style.display = 'block';
+                    autoSaveIssuer();
+                } else {
+                    let bill = bills.find(b => b.id === activeBillId);
+                    if(targetField === 'sig_recv') { bill.sigRecv.data = base64; document.getElementById('preview_sig_recv').src = base64; document.getElementById('preview_sig_recv').style.display = 'block'; }
+                    if(targetField === 'sig_auth') { bill.sigAuth.data = base64; document.getElementById('preview_sig_auth').src = base64; document.getElementById('preview_sig_auth').style.display = 'block'; }
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // ================= SIGNATURE LOGIC =================
+    function toggleSigUI(type, updateData = true) {
+        let mode = document.querySelector(`input[name="sig${type === 'recv' ? 'Recv' : 'Auth'}"]:checked`).value;
+        document.getElementById(`panel_${type}_draw`).style.display = mode === 'draw' ? 'block' : 'none';
+        document.getElementById(`panel_${type}_upload`).style.display = mode === 'upload' ? 'block' : 'none';
+        
+        if(updateData) {
+            let bill = bills.find(b => b.id === activeBillId);
+            if(type === 'recv') bill.sigRecv.mode = mode;
+            if(type === 'auth') bill.sigAuth.mode = mode;
+        }
+    }
+
+    function initCanvas(type) {
+        const canvas = document.getElementById(`canvas_${type}`);
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.parentElement.clientWidth || 300; canvas.height = 120;
+        
+        let isDrawing = false;
+        const startDraw = (e) => { isDrawing = true; draw(e); };
+        const endDraw = () => { isDrawing = false; ctx.beginPath(); saveCanvasToBill(); };
+        const getPointerPosition = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const point = e.touches ? e.touches[0] : e;
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (point.clientX - rect.left) * scaleX,
+                y: (point.clientY - rect.top) * scaleY
+            };
+        };
+        const draw = (e) => {
+            if (!isDrawing) return; e.preventDefault();
+            const pos = getPointerPosition(e);
+            ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#000';
+            ctx.lineTo(pos.x, pos.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+        };
+        canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw); canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('touchstart', startDraw); canvas.addEventListener('touchmove', draw); canvas.addEventListener('touchend', endDraw);
+        canvasData[type] = { canvas, ctx };
+    }
+
+    function clearCanvas(type) {
+        canvasData[type].ctx.clearRect(0,0, canvasData[type].canvas.width, canvasData[type].canvas.height);
+        saveCanvasToBill();
+    }
+
+    function saveCanvasToBill() {
+        let bill = bills.find(b => b.id === activeBillId);
+        if(!bill) return;
+        ['recv', 'auth'].forEach(type => {
+            let bData = type === 'recv' ? bill.sigRecv : bill.sigAuth;
+            if(bData.mode === 'draw' && canvasData[type]) {
+                const blank = document.createElement('canvas'); blank.width = canvasData[type].canvas.width; blank.height = canvasData[type].canvas.height;
+                bData.data = (canvasData[type].canvas.toDataURL() !== blank.toDataURL()) ? canvasData[type].canvas.toDataURL() : '';
+            }
+        });
+    }
+
+    // ================= ITEMS =================
+    function renderItemForm() {
+        let bill = bills.find(b => b.id === activeBillId);
+        const container = document.getElementById('items-container');
+        container.innerHTML = '';
+        bill.items.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'item-row';
+            div.style = "border: 1px solid var(--light-gray); padding: 15px; margin-bottom: 10px; background: #fafafa; border-radius: var(--radius);";
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span class="drag-handle" style="cursor: grab; font-weight: bold;">☰ ลำดับที่ ${index + 1}</span>
+                    <button class="btn-danger" style="border:none; border-radius:4px; padding:2px 8px; font-size:0.8rem;" onclick="removeItem(${index})">ลบ / Delete</button>
+                </div>
+                <div class="grid-2">
+                    <div>
+                        <label style="font-size:0.8rem;">ชื่อสินค้า <span class="en-lbl">/ Item Name</span></label>
+                        <input type="text" placeholder="ระบุชื่อสินค้า..." value="${item.name}" onchange="updateItem(${index}, 'name', this.value)">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;">รายละเอียด <span class="en-lbl">/ Description</span></label>
+                        <input type="text" placeholder="ระบุรายละเอียดเพิ่มเติม..." value="${item.desc}" onchange="updateItem(${index}, 'desc', this.value)">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size:0.8rem;">จำนวน <span class="en-lbl">/ Qty</span></label>
+                        <input type="number" placeholder="ระบุจำนวน..." value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;">ราคาต่อหน่วย <span class="en-lbl">/ Unit Price</span></label>
+                        <input type="number" placeholder="ระบุราคา..." value="${item.price}" onchange="updateItem(${index}, 'price', this.value)">
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function addItem() { let bill = bills.find(b => b.id === activeBillId); bill.items.push({ name: "", desc: "", qty: 1, price: 0 }); renderItemForm(); }
+    function removeItem(index) { let bill = bills.find(b => b.id === activeBillId); bill.items.splice(index, 1); renderItemForm(); }
+    function updateItem(index, field, val) { let bill = bills.find(b => b.id === activeBillId); bill.items[index][field] = (field==='qty'||field==='price') ? Number(val) : val; }
+
+    function formatMoney(num) { return Number(num).toLocaleString('th-TH', {minimumFractionDigits: 2}); }
+    function fDate(dStr) { if(!dStr) return '-'; const d = new Date(dStr); return d.toLocaleDateString('th-TH') + ` <span class="en-text">(${d.toLocaleDateString('en-GB')})</span>`; }
+
+    // ================= GENERATE PREVIEW (DYNAMIC PAGINATION) =================
+    function nl2br(value) { return String(value || '').replace(/\n/g, '<br>'); }
+
+    function buildDocHeaderHTML(bill) {
+        const logoHTML = issuerData.logo
+            ? `<img src="${issuerData.logo}" style="max-height:60px; max-width:180px; object-fit:contain;">`
+            : `<h2 style="margin:0; font-size:18px;">${issuerData.name || '-'}</h2>`;
+
+        return `
+            <div class="doc-header flex-between" style="align-items:flex-start;">
+                <div>${logoHTML}</div>
+                <div class="text-right">
+                    <h1 class="doc-title">ใบเสร็จรับเงิน<br><span style="font-size: 0.5em; font-weight: 400; color:var(--gray);">RECEIPT</span></h1>
+                    <p class="party-info">เลขที่ / No: <b>${bill.doc.no || '-'}</b><br>วันที่ / Date: ${fDate(bill.doc.date)}</p>
+                </div>
+            </div>
+            <div class="doc-parties">
+                <div class="party-box">
+                    <h4>ผู้ออกเอกสาร <span class="en-text">/ Issuer</span></h4>
+                    <p class="party-info"><b>${issuerData.name || '-'}</b></p>
+                    <p class="party-info">เลขผู้เสียภาษี / Tax ID: ${issuerData.tax || '-'}</p>
+                    <p class="party-info">${nl2br(issuerData.addr) || '-'}</p>
+                    <p class="party-info">Tel: ${issuerData.tel || '-'} | Email: ${issuerData.email || '-'}</p>
+                    ${issuerData.web ? `<p class="party-info">Web: ${issuerData.web}</p>` : ''}
+                </div>
+                <div class="party-box">
+                    <h4>ลูกค้า <span class="en-text">/ Customer</span></h4>
+                    <p class="party-info"><b>${bill.customer.name || '-'}</b> ${bill.customer.comp ? `(${bill.customer.comp})` : ''}</p>
+                    <p class="party-info">เลขผู้เสียภาษี / Tax ID: ${bill.customer.tax || '-'}</p>
+                    <p class="party-info">${nl2br(bill.customer.addr) || '-'}</p>
+                    <p class="party-info">Tel: ${bill.customer.tel || '-'} | Email: ${bill.customer.email || '-'}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    function buildRowsHTML(pageItems, startNo) {
+        let tbody = '';
+        pageItems.forEach((item, idx) => {
+            let lineTotal = item.qty * item.price;
+            tbody += `
+                <tr>
+                    <td class="text-center">${startNo + idx}</td>
+                    <td><b>${item.name || '-'}</b>${item.desc ? `<br><span style="color:var(--gray); font-size:10px;">${item.desc}</span>` : ''}</td>
+                    <td class="text-center">${item.qty}</td>
+                    <td class="text-right">${formatMoney(item.price)}</td>
+                    <td class="text-right">${formatMoney(lineTotal)}</td>
+                </tr>
+            `;
+        });
+        return tbody;
+    }
+
+    function buildTableHTML(pageItems, startNo) {
+        return `
+            <table class="doc-table">
+                <thead>
+                    <tr>
+                        <th width="8%">ลำดับ<br><span class="en-text">No.</span></th>
+                        <th width="47%">รายการ<br><span class="en-text">Description</span></th>
+                        <th width="10%">จำนวน<br><span class="en-text">Qty</span></th>
+                        <th width="15%">ราคา/หน่วย<br><span class="en-text">Unit Price</span></th>
+                        <th width="20%">ราคารวม<br><span class="en-text">Total</span></th>
+                    </tr>
+                </thead>
+                <tbody>${buildRowsHTML(pageItems, startNo)}</tbody>
+            </table>
+        `;
+    }
+
+    function buildPaymentHTML(bill, curr) {
+        if (!bill.payment || !bill.payment.method) return '';
+        let pMap = { 'cash': 'เงินสด / Cash', 'bank': 'โอนเงินผ่านธนาคาร / Bank Transfer', 'promptpay': 'พร้อมเพย์ / PromptPay', 'qrcode': 'สแกน QR Code / Scan QR', 'credit': 'บัตรเครดิต / Credit Card', 'debit': 'บัตรเดบิต / Debit Card', 'check': 'เช็ค / Cheque', 'ewallet': 'อีวอลเล็ต / E-Wallet', 'other': 'อื่นๆ / Other' };
+        let mText = pMap[bill.payment.method] || bill.payment.method;
+        let payHTML = `<div style="border: 1px solid var(--black); border-radius: var(--radius); padding: 8px; margin-bottom: 10px; font-size: 11px;">`;
+        payHTML += `<div style="font-weight: 600; border-bottom: 1px solid var(--light-gray); margin-bottom: 6px; padding-bottom: 3px; font-size: 12px;">ข้อมูลการชำระเงิน <span class="en-text">/ Payment Information</span></div>`;
+        payHTML += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">`;
+        payHTML += `<div><b>วิธีการชำระเงิน <span class="en-text">/ Method</span>:</b> ${mText}</div>`;
+        payHTML += `<div><b>จำนวนเงิน <span class="en-text">/ Amount Paid</span>:</b> ${formatMoney(bill.payment.amount)} ${curr}</div>`;
+        if (bill.payment.date) payHTML += `<div><b>วันที่ชำระ <span class="en-text">/ Date</span>:</b> ${fDate(bill.payment.date)}</div>`;
+        if (bill.payment.time) payHTML += `<div><b>เวลา <span class="en-text">/ Time</span>:</b> ${bill.payment.time}</div>`;
+        if (bill.payment.refNo) payHTML += `<div><b>เลขอ้างอิง <span class="en-text">/ Ref No.</span>:</b> ${bill.payment.refNo}</div>`;
+        if(bill.payment.method === 'cash'){
+            if (bill.payment.cashRecv) payHTML += `<div><b>รับเงินมา <span class="en-text">/ Received</span>:</b> ${formatMoney(bill.payment.cashRecv)} ${curr}</div>`;
+            if (bill.payment.cashChange) payHTML += `<div><b>เงินทอน <span class="en-text">/ Change</span>:</b> ${formatMoney(bill.payment.cashChange)} ${curr}</div>`;
+        } else if (bill.payment.method === 'bank') {
+            if (bill.payment.bank) payHTML += `<div><b>ธนาคาร <span class="en-text">/ Bank</span>:</b> ${bill.payment.bank}</div>`;
+            if (bill.payment.accName) payHTML += `<div><b>ชื่อบัญชี <span class="en-text">/ Acc. Name</span>:</b> ${bill.payment.accName}</div>`;
+            if (bill.payment.accNo) payHTML += `<div><b>เลขบัญชี <span class="en-text">/ Acc. No.</span>:</b> ${bill.payment.accNo}</div>`;
+        } else if (bill.payment.method === 'promptpay') {
+            if (bill.payment.ppAccName) payHTML += `<div><b>ชื่อบัญชี <span class="en-text">/ Acc. Name</span>:</b> ${bill.payment.ppAccName}</div>`;
+            if (bill.payment.ppNo) payHTML += `<div><b>พร้อมเพย์ <span class="en-text">/ PromptPay No.</span>:</b> ${bill.payment.ppNo}</div>`;
+        } else if (bill.payment.method === 'qrcode') {
+            if (bill.payment.qrBank) payHTML += `<div><b>แอป/บัญชีรับเงิน <span class="en-text">/ Provider</span>:</b> ${bill.payment.qrBank}</div>`;
+            if (bill.payment.qrAccName) payHTML += `<div><b>ชื่อบัญชี <span class="en-text">/ Acc. Name</span>:</b> ${bill.payment.qrAccName}</div>`;
+        } else if (bill.payment.method === 'credit' || bill.payment.method === 'debit') {
+            if (bill.payment.method === 'credit' && bill.payment.cardBank) payHTML += `<div><b>ธนาคารผู้ออกบัตร <span class="en-text">/ Issuing Bank</span>:</b> ${bill.payment.cardBank}</div>`;
+            if (bill.payment.method === 'debit' && bill.payment.debitBank) payHTML += `<div><b>ธนาคารผู้ออกบัตร <span class="en-text">/ Issuing Bank</span>:</b> ${bill.payment.debitBank}</div>`;
+            if (bill.payment.method === 'credit' && bill.payment.cardType) payHTML += `<div><b>ประเภทบัตร <span class="en-text">/ Card Type</span>:</b> ${bill.payment.cardType}</div>`;
+            if (bill.payment.method === 'credit' && bill.payment.cardLast4) payHTML += `<div><b>เลขท้าย 4 หลัก <span class="en-text">/ Last 4</span>:</b> ${bill.payment.cardLast4}</div>`;
+            if (bill.payment.method === 'debit' && bill.payment.debitLast4) payHTML += `<div><b>เลขท้าย 4 หลัก <span class="en-text">/ Last 4</span>:</b> ${bill.payment.debitLast4}</div>`;
+        } else if (bill.payment.method === 'check') {
+            if (bill.payment.checkBank) payHTML += `<div><b>ธนาคาร <span class="en-text">/ Bank</span>:</b> ${bill.payment.checkBank}</div>`;
+            if (bill.payment.checkNo) payHTML += `<div><b>เลขที่เช็ค <span class="en-text">/ Cheque No.</span>:</b> ${bill.payment.checkNo}</div>`;
+            if (bill.payment.checkDate) payHTML += `<div><b>วันที่ในเช็ค <span class="en-text">/ Cheque Date</span>:</b> ${fDate(bill.payment.checkDate)}</div>`;
+            if (bill.payment.checkDue) payHTML += `<div><b>วันที่ครบกำหนด <span class="en-text">/ Due Date</span>:</b> ${fDate(bill.payment.checkDue)}</div>`;
+            if (bill.payment.checkDrawer) payHTML += `<div style="grid-column: span 2;"><b>ชื่อผู้สั่งจ่าย <span class="en-text">/ Drawer Name</span>:</b> ${bill.payment.checkDrawer}</div>`;
+        } else if (bill.payment.method === 'ewallet') {
+            if (bill.payment.ewalletProvider) payHTML += `<div><b>ผู้ให้บริการ <span class="en-text">/ Provider</span>:</b> ${bill.payment.ewalletProvider}</div>`;
+        } else if (bill.payment.method === 'other') {
+            if (bill.payment.otherMethod) payHTML += `<div><b>วิธีชำระเงิน <span class="en-text">/ Specify Method</span>:</b> ${bill.payment.otherMethod}</div>`;
+            if (bill.payment.otherDetail) payHTML += `<div style="grid-column: span 2;"><b>รายละเอียด <span class="en-text">/ Details</span>:</b> ${bill.payment.otherDetail}</div>`;
+        }
+        payHTML += `</div>`;
+        if (bill.payment.note) payHTML += `<div style="margin-top: 6px; border-top: 1px dashed var(--light-gray); padding-top: 6px;"><b>หมายเหตุ <span class="en-text">/ Payment Remark</span>:</b> ${nl2br(bill.payment.note)}</div>`;
+        payHTML += `</div>`;
+        return payHTML;
+    }
+
+    function buildLastFooterHTML(bill, totals) {
+        let curr = bill.doc.curr;
+        let note = nl2br(bill.doc.note);
+        let terms = nl2br(bill.doc.terms);
+        let recvImg = (bill.sigRecv.mode !== 'blank' && bill.sigRecv.data) ? `background-image: url(${bill.sigRecv.data}); border-bottom: 1px solid #000; height: 60px;` : '';
+        let authImg = (bill.sigAuth.mode !== 'blank' && bill.sigAuth.data) ? `background-image: url(${bill.sigAuth.data}); border-bottom: 1px solid #000; height: 60px;` : '';
+        return `
+            <div class="last-page-footer">
+                ${buildPaymentHTML(bill, curr)}
+                <div class="bottom-section">
+                    <div class="doc-note-box">
+                        <div style="font-size:11px;"><b>หมายเหตุเอกสาร <span class="en-text">/ Doc Remark</span>:</b><br>${note || '-'}</div>
+                        <div class="terms-box"><b>เงื่อนไข <span class="en-text">/ Terms & Conditions</span>:</b><br>${terms || '-'}</div>
+                    </div>
+                    <div class="doc-summary">
+                        <div class="summary-row"><span>รวมเป็นเงิน <span class="en-text">/ Subtotal</span></span> <span>${formatMoney(totals.sumTotal)} ${curr}</span></div>
+                        <div class="summary-row"><span>ส่วนลด <span class="en-text">/ Discount</span></span> <span>${formatMoney(totals.discount)} ${curr}</span></div>
+                        <div class="summary-row"><span>ราคาหลังหักส่วนลด <span class="en-text">/ Pre-VAT</span></span> <span>${formatMoney(totals.preVat)} ${curr}</span></div>
+                        ${totals.vatRate > 0 ? `<div class="summary-row"><span>ภาษี 7% <span class="en-text">/ VAT 7%</span></span> <span>${formatMoney(totals.vatAmt)} ${curr}</span></div>` : ''}
+                        <div class="summary-row summary-total"><span>ยอดรวมสุทธิ <span class="en-text">/ Net Total</span></span> <span>${formatMoney(totals.netTotal)} ${curr}</span></div>
+                    </div>
+                </div>
+                <div class="signatures-area">
+                    <div class="sig-box">
+                        <div class="sig-line" style="${recvImg}"></div>
+                        <p style="margin:5px 0 2px 0; font-size:11px;"><b>ผู้รับเงิน <span class="en-text">/ Received By</span></b></p>
+                        <p style="margin:0; font-size:11px;">วันที่ / Date: ........./........./.........</p>
+                    </div>
+                    <div class="sig-box">
+                        <div class="sig-line" style="${authImg}"></div>
+                        <p style="margin:5px 0 2px 0; font-size:11px;"><b>ผู้อนุมัติ <span class="en-text">/ Authorized By</span></b></p>
+                        <p style="margin:0; font-size:11px;">วันที่ / Date: ........./........./.........</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function buildPageHTML(bill, pageItems, pageNo, totalPages, startNo, isLast, totals) {
+        return `
+            <div class="a4-page">
+                <div class="page-num">หน้า / Page ${pageNo}/${totalPages}</div>
+                <div class="a4-content">
+                    ${buildDocHeaderHTML(bill)}
+                    ${buildTableHTML(pageItems, startNo)}
+                    ${isLast ? buildLastFooterHTML(bill, totals) : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    function getMeasureContainer() {
+        let meas = document.getElementById('measure-container');
+        if (!meas) {
+            meas = document.createElement('div');
+            meas.id = 'measure-container';
+            meas.style.cssText = 'position:absolute; left:-10000px; top:0; width:210mm; visibility:hidden; display:block; z-index:-1;';
+            document.body.appendChild(meas);
+        }
+        return meas;
+    }
+
+    function pageHTMLFits(html, isLast) {
+        const meas = getMeasureContainer();
+        meas.innerHTML = html;
+        const page = meas.querySelector('.a4-page');
+        const table = page.querySelector('.doc-table');
+        const pageRect = page.getBoundingClientRect();
+        const tableBottom = table.getBoundingClientRect().bottom;
+        const padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 0;
+        let limit = pageRect.bottom - padBottom;
+        if (isLast) {
+            const footer = page.querySelector('.last-page-footer');
+            if (footer) limit = footer.getBoundingClientRect().top - 8;
+        }
+        const fits = tableBottom <= (limit + 1);
+        meas.innerHTML = '';
+        return fits;
+    }
+
+    function maxRowsThatFit(bill, remainingItems, startIndex, isLast, totals) {
+        let low = 0, high = remainingItems.length, best = 0;
+        while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            const html = buildPageHTML(bill, remainingItems.slice(0, mid), 1, 1, startIndex + 1, isLast, totals);
+            if (pageHTMLFits(html, isLast)) {
+                best = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        if (best === 0 && remainingItems.length > 0) best = 1;
+        return best;
+    }
+
+    function paginateBillDynamically(bill, totals) {
+        const items = bill.items || [];
+        if (items.length === 0) return [{ items: [], startNo: 1 }];
+
+        let pages = [];
+        let idx = 0;
+        let guard = 0;
+        while (idx < items.length && guard < items.length + 20) {
+            const remaining = items.slice(idx);
+            const lastPageHTML = buildPageHTML(bill, remaining, 1, 1, idx + 1, true, totals);
+
+            if (pageHTMLFits(lastPageHTML, true)) {
+                pages.push({ items: remaining, startNo: idx + 1 });
+                idx = items.length;
+                break;
+            }
+
+            let count = maxRowsThatFit(bill, remaining, idx, false, totals);
+            if (count >= remaining.length) {
+                pages.push({ items: remaining, startNo: idx + 1 });
+                pages.push({ items: [], startNo: idx + count + 1 });
+                idx = items.length;
+                break;
+            }
+
+            pages.push({ items: remaining.slice(0, count), startNo: idx + 1 });
+            idx += count;
+            guard++;
+        }
+
+        if (pages.length === 0) pages.push({ items: [], startNo: 1 });
+        return pages;
+    }
+
+    function getBillTotals(bill) {
+        let sumTotal = 0;
+        bill.items.forEach(item => { sumTotal += (item.qty * item.price); });
+        let discount = Number(bill.doc.discount) || 0;
+        let preVat = sumTotal - discount;
+        let vatRate = bill.doc.vat === '7' ? 0.07 : 0;
+        let vatAmt = preVat * vatRate;
+        let netTotal = preVat + vatAmt;
+        return { sumTotal, discount, preVat, vatRate, vatAmt, netTotal };
+    }
+
+    function generatePreview() {
+        saveCanvasToBill(); // Force save any ongoing drawing
+
+        const renderCont = document.getElementById('render-container');
+        renderCont.innerHTML = '';
+        const previewCont = document.getElementById('preview-bills-container');
+        previewCont.innerHTML = '';
+        generatedHTMLByBill = {};
+
+        bills.forEach((bill) => {
+            const totals = getBillTotals(bill);
+            const pagesData = paginateBillDynamically(bill, totals);
+            const totalP = pagesData.length;
+            let billHTMLArray = [];
+            let billRenderGroup = document.createElement('div');
+            billRenderGroup.id = `render-bill-${bill.id}`;
+            billRenderGroup.className = 'bill-render-group';
+
+            pagesData.forEach((pageData, i) => {
+                const isLast = i === totalP - 1;
+                const pageHTML = buildPageHTML(bill, pageData.items, i + 1, totalP, pageData.startNo, isLast, totals);
+                billRenderGroup.innerHTML += pageHTML;
+                billHTMLArray.push(pageHTML);
+            });
+
+            renderCont.appendChild(billRenderGroup);
+            generatedHTMLByBill[bill.id] = billHTMLArray;
+
+            // Preview Section
+            const billUI = document.createElement('div');
+            billUI.className = 'bill-preview-section';
+            billUI.innerHTML = `
+                <div class="flex-between" style="border-bottom: 2px solid var(--black); padding-bottom: 10px; flex-wrap: wrap; gap:10px;">
+                    <h3 style="margin:0;">📁 บิล: ${bill.doc.no || 'REC-XXXX'} | ลูกค้า: ${bill.customer.name || '-'}</h3>
+                    <div style="display:flex; gap:10px; flex-wrap: wrap;">
+                        <button class="btn btn-outline" onclick="goToBillTypeSelection()">◀ กลับสู่หน้าเลือกประเภทบิล</button>
+                        <button class="btn btn-outline" onclick="exportImages(${bill.id}, '${bill.doc.no || 'Receipt'}')">🖼️ โหลดรูปภาพ / Save Image</button>
+                        <button class="btn btn-outline" onclick="exportPDF(${bill.id}, '${bill.doc.no || 'Receipt'}')">📄 โหลด PDF / Save PDF</button>
+                        <button class="btn" onclick="printBill(${bill.id})">🖨️ สั่งพิมพ์ / Print</button>
+                    </div>
+                </div>
+                <div class="preview-grid" id="grid-${bill.id}"></div>
+            `;
+            previewCont.appendChild(billUI);
+
+            const grid = document.getElementById(`grid-${bill.id}`);
+            billHTMLArray.forEach((html, pageIdx) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'preview-thumbnail';
+                wrap.onclick = () => openModal(html);
+
+                const contentDiv = document.createElement('div');
+                contentDiv.style.width = '210mm';
+                contentDiv.style.height = '297mm';
+                contentDiv.style.transform = 'scale(0.22)';
+                contentDiv.style.transformOrigin = 'top left';
+                contentDiv.style.pointerEvents = 'none';
+                contentDiv.style.backgroundColor = 'white';
+                contentDiv.innerHTML = html;
+
+                setTimeout(() => {
+                    let a4 = contentDiv.querySelector('.a4-page');
+                    if(a4) { a4.style.margin = '0'; a4.style.boxShadow = 'none'; }
+                }, 10);
+
+                wrap.appendChild(contentDiv);
+                const label = document.createElement('div');
+                label.className = 'thumb-label';
+                label.innerText = `หน้า / Page ${pageIdx + 1}/${totalP} (คลิกซูม)`;
+                wrap.appendChild(label);
+                grid.appendChild(wrap);
+            });
+        });
+
+        switchView('view-preview');
+    }
+
+    // ================= MODAL & EXPORT (แก้ไขเรื่องปิด Modal ด้วย ESC และคลิกนอกกรอบ) =================
+    function switchView(viewId) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    }
+
+    function openModal(htmlContent) {
+        document.getElementById('detail-modal').style.display = 'block'; 
+        document.getElementById('modal-doc-render').innerHTML = htmlContent;
+        document.body.style.overflow = 'hidden'; 
+    }
+    
+    function closeModalForce(event) {
+        // หากมีการกดมาจากภายในเนื้อหากระดาษ (ไม่รวมพื้นหลัง) จะไม่ปิด
+        if(event && event.target.id !== 'detail-modal' && !event.target.classList.contains('close-modal')) return;
+        
+        let modal = document.getElementById('detail-modal');
+        if(modal) modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    // กดปุ่ม ESC บนคีย์บอร์ดเพื่อออกจากหน้าพรีวิวได้
+    document.addEventListener('keydown', function(event) {
+        if (event.key === "Escape") {
+            let modal = document.getElementById('detail-modal');
+            if(modal && modal.style.display === 'block') {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+        }
+    });
+
+    function exportPDF(billId, docNo) {
+        const element = document.getElementById(`render-bill-${billId}`);
+        element.style.display = 'block'; 
+        const renderWrap = document.getElementById('render-container');
+        renderWrap.style.display = 'block';
+        document.body.classList.add('pdf-exporting');
+
+        const opt = {
+            margin:       0,
+            filename:     `${docNo}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+            pagebreak:    { mode: ['css', 'legacy'] },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            renderWrap.style.display = 'none';
+            document.body.classList.remove('pdf-exporting');
+        }).catch(() => {
+            renderWrap.style.display = 'none';
+            document.body.classList.remove('pdf-exporting');
+        });
+    }
+
+    function exportImages(billId, docNo) {
+        const container = document.getElementById(`render-bill-${billId}`);
+        const renderWrap = document.getElementById('render-container');
+        container.style.display = 'block';
+        renderWrap.style.display = 'block';
+        document.body.classList.add('pdf-exporting');
+
+        const pages = container.querySelectorAll('.a4-page');
+        alert('กำลังเตรียมดาวน์โหลดรูปภาพ กรุณารอสักครู่... / Preparing images, please wait...');
+        
+        pages.forEach((page, index) => {
+            setTimeout(() => {
+                html2canvas(page, { scale: 2, useCORS: true }).then(canvas => {
+                    let link = document.createElement('a');
+                    link.download = `${docNo}_Page_${index + 1}.jpg`;
+                    link.href = canvas.toDataURL('image/jpeg', 0.9);
+                    link.click();
+                    if(index === pages.length - 1) { renderWrap.style.display = 'none'; document.body.classList.remove('pdf-exporting'); }
+                });
+            }, index * 800);
+        });
+    }
+
+    function printBill(billId) {
+        document.querySelectorAll('.bill-render-group').forEach(el => {
+            el.style.display = (el.id === `render-bill-${billId}`) ? 'block' : 'none';
+        });
+        window.print();
+        document.querySelectorAll('.bill-render-group').forEach(el => el.style.display = 'block');
+    }
+</script>
+
+</body>
+</html>
